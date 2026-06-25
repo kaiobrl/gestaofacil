@@ -1,14 +1,12 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "./auth";
-import type { SessionUser } from "./types";
+import { auth } from "./auth";
 import { NextResponse } from "next/server";
 
 export async function getSessionUser() {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   if (!session?.user) {
     return null;
   }
-  return session.user as SessionUser;
+  return session.user;
 }
 
 export async function requireSession() {

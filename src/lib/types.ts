@@ -11,14 +11,6 @@ declare module "next-auth" {
   }
 }
 
-declare module "next-auth/jwt" {
-  interface JWT {
-    tenantId: string;
-    role: string;
-    tenantSlug: string;
-  }
-}
-
 export interface SessionUser {
   id: string;
   email: string;
