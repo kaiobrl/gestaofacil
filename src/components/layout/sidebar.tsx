@@ -12,7 +12,6 @@ import {
   CheckSquare,
   BarChart3,
   Settings,
-  Bell,
 } from "lucide-react";
 
 const navigation = [
@@ -41,7 +40,7 @@ export function Sidebar() {
       </div>
       <nav className="space-y-1 p-4">
         {navigation.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link
               key={item.name}

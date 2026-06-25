@@ -1,33 +1,86 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Handshake, CheckSquare, DollarSign } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
-const stats = [
-  { title: "Contatos", value: "1.234", change: "+12% este mês", icon: Users, color: "text-blue-600", bg: "bg-blue-100" },
-  { title: "Negócios Ativos", value: "48", change: "+8 esta semana", icon: Handshake, color: "text-purple-600", bg: "bg-purple-100" },
-  { title: "Tarefas Pendentes", value: "23", change: "5 vencem hoje", icon: CheckSquare, color: "text-orange-600", bg: "bg-orange-100" },
-  { title: "Receita Mensal", value: "R$ 125.400", change: "+18% vs mês anterior", icon: DollarSign, color: "text-green-600", bg: "bg-green-100" },
-];
+interface DashboardStats {
+  contacts: number;
+  deals: number;
+  pendingTasks: number;
+  revenue: number;
+}
 
-const recentDeals = [
-  { id: 1, title: "Projeto Website", value: "R$ 15.000", stage: "Proposta", contact: "João Silva" },
-  { id: 2, title: "Consultoria ERP", value: "R$ 45.000", stage: "Negociação", contact: "Maria Santos" },
-  { id: 3, title: "Licença Software", value: "R$ 8.500", stage: "Lead", contact: "Pedro Costa" },
-  { id: 4, title: "Suporte Anual", value: "R$ 12.000", stage: "Contato", contact: "Ana Oliveira" },
-  { id: 5, title: "Migração Cloud", value: "R$ 32.000", stage: "Fechado", contact: "Lucas Lima" },
-];
+interface RecentDeal {
+  id: string;
+  title: string;
+  value: number;
+  stage: string;
+  contact: { firstName: string; lastName: string | null } | null;
+}
 
 const stageColors: Record<string, string> = {
-  Lead: "bg-blue-100 text-blue-800",
-  Contato: "bg-purple-100 text-purple-800",
-  Proposta: "bg-yellow-100 text-yellow-800",
-  Negociação: "bg-orange-100 text-orange-800",
-  Fechado: "bg-green-100 text-green-800",
-  Perdido: "bg-red-100 text-red-800",
+  lead: "bg-blue-100 text-blue-800",
+  contato: "bg-purple-100 text-purple-800",
+  proposta: "bg-yellow-100 text-yellow-800",
+  negociacao: "bg-orange-100 text-orange-800",
+  fechado: "bg-green-100 text-green-800",
+  perdido: "bg-red-100 text-red-800",
+};
+
+const stageLabels: Record<string, string> = {
+  lead: "Lead",
+  contato: "Contato",
+  proposta: "Proposta",
+  negociacao: "Negociação",
+  fechado: "Fechado",
+  perdido: "Perdido",
 };
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState<DashboardStats>({ contacts: 0, deals: 0, pendingTasks: 0, revenue: 0 });
+  const [recentDeals, setRecentDeals] = useState<RecentDeal[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const [contactsRes, dealsRes, activitiesRes] = await Promise.all([
+          fetch("/api/contacts?limit=1"),
+          fetch("/api/deals?status=OPEN"),
+          fetch("/api/activities?status=pending"),
+        ]);
+
+        const contactsData = await contactsRes.json();
+        const dealsData = await dealsRes.json();
+        const activitiesData = await activitiesRes.json();
+
+        setStats({
+          contacts: contactsData.pagination?.total || 0,
+          deals: dealsData.deals?.length || 0,
+          pendingTasks: activitiesData.activities?.length || 0,
+          revenue: dealsData.deals?.reduce((sum: number, deal: RecentDeal) => sum + deal.value, 0) || 0,
+        });
+
+        setRecentDeals(dealsData.deals?.slice(0, 5) || []);
+      } catch (error) {
+        console.error("Error fetching dashboard:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboard();
+  }, []);
+
+  const statCards = [
+    { title: "Contatos", value: stats.contacts, icon: Users, color: "text-blue-600", bg: "bg-blue-100" },
+    { title: "Negócios Ativos", value: stats.deals, icon: Handshake, color: "text-purple-600", bg: "bg-purple-100" },
+    { title: "Tarefas Pendentes", value: stats.pendingTasks, icon: CheckSquare, color: "text-orange-600", bg: "bg-orange-100" },
+    { title: "Receita Total", value: formatCurrency(stats.revenue), icon: DollarSign, color: "text-green-600", bg: "bg-green-100" },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
@@ -35,7 +88,7 @@ export default function DashboardPage() {
         <p className="text-gray-600">Visão geral do seu CRM</p>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
+        {statCards.map((stat) => (
           <Card key={stat.title}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">{stat.title}</CardTitle>
@@ -44,56 +97,42 @@ export default function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-gray-500">{stat.change}</p>
+              <div className="text-2xl font-bold">{loading ? "..." : stat.value}</div>
             </CardContent>
           </Card>
         ))}
       </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle>Negócios Recentes</CardTitle></CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader>
+          <CardTitle>Negócios Recentes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">Carregando...</div>
+          ) : recentDeals.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">Nenhum negócio encontrado</div>
+          ) : (
             <div className="space-y-4">
               {recentDeals.map((deal) => (
                 <div key={deal.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
                   <div className="space-y-1">
                     <p className="font-medium">{deal.title}</p>
-                    <p className="text-sm text-gray-500">{deal.contact}</p>
+                    <p className="text-sm text-gray-500">
+                      {deal.contact ? `${deal.contact.firstName} ${deal.contact.lastName || ""}` : "Sem contato"}
+                    </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold">{deal.value}</p>
-                    <span className={`inline-block rounded-full px-2 py-1 text-xs font-medium ${stageColors[deal.stage] || "bg-gray-100 text-gray-800"}`}>{deal.stage}</span>
+                    <p className="font-semibold">{formatCurrency(deal.value)}</p>
+                    <span className={`inline-block rounded-full px-2 py-1 text-xs font-medium ${stageColors[deal.stage] || "bg-gray-100 text-gray-800"}`}>
+                      {stageLabels[deal.stage] || deal.stage}
+                    </span>
                   </div>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>Atividades de Hoje</CardTitle></CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[
-                { time: "09:00", title: "Reunião com João Silva", type: "Reunião" },
-                { time: "11:30", title: "Ligação para Maria Santos", type: "Ligação" },
-                { time: "14:00", title: "Follow-up proposta Pedro", type: "Email" },
-                { time: "16:00", title: "Demo para Ana Oliveira", type: "Reunião" },
-              ].map((activity, i) => (
-                <div key={i} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
-                  <div className="flex items-center space-x-4">
-                    <div className="text-sm font-mono text-gray-500">{activity.time}</div>
-                    <div>
-                      <p className="font-medium">{activity.title}</p>
-                      <p className="text-sm text-gray-500">{activity.type}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

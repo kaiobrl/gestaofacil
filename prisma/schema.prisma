@@ -44,6 +44,7 @@ model User {
   assignedTasks       Task[]          @relation("TaskAssignee")
   createdTasks        Task[]          @relation("TaskCreator")
 
+  @@index([tenantId])
   @@map("users")
 }
 
@@ -71,6 +72,7 @@ model Subscription {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId])
   @@map("subscriptions")
 }
 
@@ -85,6 +87,7 @@ model Invitation {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId])
   @@map("invitations")
 }
 
@@ -95,7 +98,7 @@ model Contact {
   lastName  String?
   email     String?
   phone     String?
-  company   String?
+  companyId String?
   jobTitle  String?
   address   String?
   city      String?
@@ -109,13 +112,16 @@ model Contact {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  deals          Deal[]
-  activities     Activity[]
+  company    Company?        @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  deals      Deal[]
+  activities Activity[]
   communications Communication[]
-  comments       Comment[]
-  files          File[]
-  tasks          Task[]
+  comments   Comment[]
+  files      File[]
+  tasks      Task[]
 
+  @@index([tenantId])
+  @@index([companyId])
   @@map("contacts")
 }
 
@@ -145,6 +151,10 @@ model Deal {
   activities Activity[]
   comments   Comment[]
 
+  @@index([tenantId])
+  @@index([contactId])
+  @@index([companyId])
+  @@index([ownerId])
   @@map("deals")
 }
 
@@ -158,6 +168,7 @@ model Pipeline {
 
   stages PipelineStage[]
 
+  @@index([tenantId])
   @@map("pipelines")
 }
 
@@ -173,6 +184,8 @@ model PipelineStage {
 
   pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId])
+  @@index([pipelineId])
   @@map("pipeline_stages")
 }
 
@@ -196,9 +209,11 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  deals Deal[]
-  files File[]
+  contacts Contact[]
+  deals    Deal[]
+  files    File[]
 
+  @@index([tenantId])
   @@map("companies")
 }
 
@@ -221,6 +236,10 @@ model Activity {
   deal    Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
   user    User     @relation(fields: [userId], references: [id])
 
+  @@index([tenantId])
+  @@index([contactId])
+  @@index([dealId])
+  @@index([userId])
   @@map("activities")
 }
 
@@ -239,6 +258,10 @@ model Communication {
   contact Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
   user    User     @relation(fields: [userId], references: [id])
 
+  @@index([tenantId])
+  @@index([contactId])
+  @@index([dealId])
+  @@index([userId])
   @@map("communications")
 }
 
@@ -262,6 +285,11 @@ model Task {
   assignee User     @relation("TaskAssignee", fields: [assigneeId], references: [id])
   createdBy User    @relation("TaskCreator", fields: [createdById], references: [id])
 
+  @@index([tenantId])
+  @@index([contactId])
+  @@index([dealId])
+  @@index([assigneeId])
+  @@index([createdById])
   @@map("tasks")
 }
 
@@ -279,6 +307,10 @@ model Comment {
   contact Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
   user    User     @relation(fields: [userId], references: [id])
 
+  @@index([tenantId])
+  @@index([dealId])
+  @@index([contactId])
+  @@index([userId])
   @@map("comments")
 }
 
@@ -298,6 +330,11 @@ model File {
   contact Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
   company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
+  @@index([tenantId])
+  @@index([contactId])
+  @@index([dealId])
+  @@index([companyId])
+  @@index([userId])
   @@map("files")
 }
 
@@ -312,5 +349,7 @@ model Notification {
   link      String?
   createdAt DateTime @default(now())
 
+  @@index([tenantId])
+  @@index([userId])
   @@map("notifications")
 }

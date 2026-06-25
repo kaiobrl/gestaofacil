@@ -12,15 +12,15 @@ export async function GET() {
     try {
       await prisma.$queryRaw`SELECT 1`;
       checks.database = "conectado";
-    } catch (error: any) {
-      checks.database = `erro: ${error.message}`;
+    } catch (error) {
+      checks.database = `erro: ${error instanceof Error ? error.message : "Unknown error"}`;
     }
 
     try {
       const userCount = await prisma.user.count();
       checks.users = `${userCount} usuários`;
-    } catch (error: any) {
-      checks.users = `tabela não existe: ${error.code}`;
+    } catch (error) {
+      checks.users = `tabela não existe: ${error instanceof Error ? error.message : "Unknown error"}`;
     }
   }
 

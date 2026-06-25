@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireSession } from "@/lib/session";
+import { createContactSchema } from "@/lib/validations/contact";
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { user, error } = await requireSession();
+  if (error) return error;
 
-  const tenantId = (session.user as any).tenantId;
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search") || "";
   const page = parseInt(searchParams.get("page") || "1");
@@ -17,14 +14,13 @@ export async function GET(req: Request) {
   const skip = (page - 1) * limit;
 
   const where = {
-    tenantId,
+    tenantId: user.tenantId,
     ...(search
       ? {
           OR: [
             { firstName: { contains: search, mode: "insensitive" as const } },
             { lastName: { contains: search, mode: "insensitive" as const } },
             { email: { contains: search, mode: "insensitive" as const } },
-            { company: { contains: search, mode: "insensitive" as const } },
           ],
         }
       : {}),
@@ -36,6 +32,9 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "desc" },
       skip,
       take: limit,
+      include: {
+        company: { select: { id: true, name: true } },
+      },
     }),
     prisma.contact.count({ where }),
   ]);
@@ -52,31 +51,26 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { user, error } = await requireSession();
+  if (error) return error;
 
-  const tenantId = (session.user as any).tenantId;
   const body = await req.json();
+  const result = createContactSchema.safeParse(body);
+
+  if (!result.success) {
+    return NextResponse.json(
+      { error: result.error.issues[0].message },
+      { status: 400 }
+    );
+  }
 
   const contact = await prisma.contact.create({
     data: {
-      tenantId,
-      firstName: body.firstName,
-      lastName: body.lastName,
-      email: body.email,
-      phone: body.phone,
-      company: body.company,
-      jobTitle: body.jobTitle,
-      address: body.address,
-      city: body.city,
-      state: body.state,
-      country: body.country,
-      zipCode: body.zipCode,
-      website: body.website,
-      notes: body.notes,
-      tags: body.tags || [],
+      tenantId: user.tenantId,
+      ...result.data,
+    },
+    include: {
+      company: { select: { id: true, name: true } },
     },
   });
 

@@ -1,26 +1,24 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireSession } from "@/lib/session";
+import { createDealSchema, updateDealSchema } from "@/lib/validations/deal";
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { user, error } = await requireSession();
+  if (error) return error;
 
-  const tenantId = (session.user as any).tenantId;
   const { searchParams } = new URL(req.url);
   const stage = searchParams.get("stage");
   const status = searchParams.get("status") || "OPEN";
 
-  const where: any = { tenantId, status };
+  const where: Record<string, unknown> = { tenantId: user.tenantId, status };
   if (stage) where.stage = stage;
 
   const deals = await prisma.deal.findMany({
     where,
     include: {
       contact: { select: { id: true, firstName: true, lastName: true } },
+      company: { select: { id: true, name: true } },
       owner: { select: { id: true, name: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -30,30 +28,29 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { user, error } = await requireSession();
+  if (error) return error;
 
-  const tenantId = (session.user as any).tenantId;
-  const userId = (session.user as any).id;
   const body = await req.json();
+  const result = createDealSchema.safeParse(body);
+
+  if (!result.success) {
+    return NextResponse.json(
+      { error: result.error.issues[0].message },
+      { status: 400 }
+    );
+  }
 
   const deal = await prisma.deal.create({
     data: {
-      tenantId,
-      title: body.title,
-      value: body.value || 0,
-      stage: body.stage || "lead",
-      probability: body.probability || 0,
-      expectedClose: body.expectedClose,
-      contactId: body.contactId,
-      companyId: body.companyId,
-      ownerId: body.ownerId || userId,
-      createdById: userId,
+      tenantId: user.tenantId,
+      createdById: user.id,
+      ownerId: user.id,
+      ...result.data,
     },
     include: {
       contact: { select: { id: true, firstName: true, lastName: true } },
+      company: { select: { id: true, name: true } },
       owner: { select: { id: true, name: true } },
     },
   });
@@ -62,22 +59,38 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { user, error } = await requireSession();
+  if (error) return error;
 
   const body = await req.json();
-  const { id, ...data } = body;
+  const result = updateDealSchema.safeParse(body);
 
-  const deal = await prisma.deal.update({
+  if (!result.success) {
+    return NextResponse.json(
+      { error: result.error.issues[0].message },
+      { status: 400 }
+    );
+  }
+
+  const { id, ...data } = result.data;
+
+  const deal = await prisma.deal.findFirst({
+    where: { id, tenantId: user.tenantId },
+  });
+
+  if (!deal) {
+    return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+  }
+
+  const updated = await prisma.deal.update({
     where: { id },
     data,
     include: {
       contact: { select: { id: true, firstName: true, lastName: true } },
+      company: { select: { id: true, name: true } },
       owner: { select: { id: true, name: true } },
     },
   });
 
-  return NextResponse.json(deal);
+  return NextResponse.json(updated);
 }

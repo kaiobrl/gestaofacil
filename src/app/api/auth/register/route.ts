@@ -2,18 +2,21 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
+import { registerSchema } from "@/lib/validations/auth";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, email, password, companyName } = body;
+    const result = registerSchema.safeParse(body);
 
-    if (!name || !email || !password || !companyName) {
-      return NextResponse.json(
-        { error: "Todos os campos são obrigatórios" },
-        { status: 400 }
-      );
-    }
+  if (!result.success) {
+    return NextResponse.json(
+      { error: result.error.issues[0].message },
+      { status: 400 }
+    );
+  }
+
+    const { name, email, password, companyName } = result.data;
 
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -40,7 +43,7 @@ export async function POST(req: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    const result = await prisma.$transaction(async (tx) => {
+    const transaction = await prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
         data: {
           name: companyName,
@@ -82,30 +85,14 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         message: "Conta criada com sucesso",
-        user: { id: result.user.id, name: result.user.name, email: result.user.email },
+        user: { id: transaction.user.id, name: transaction.user.name, email: transaction.user.email },
       },
       { status: 201 }
     );
-  } catch (error: any) {
-    console.error("Registration error:", error?.message, error?.stack);
-
-    if (!process.env.DATABASE_URL) {
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return NextResponse.json(
         { error: "DATABASE_URL não configurada" },
-        { status: 500 }
-      );
-    }
-
-    if (error?.code === "P2002") {
-      return NextResponse.json(
-        { error: "Email ou empresa já cadastrados" },
-        { status: 400 }
-      );
-    }
-
-    if (error?.code?.startsWith("P")) {
-      return NextResponse.json(
-        { error: `Erro de banco de dados: ${error.code}` },
         { status: 500 }
       );
     }

@@ -16,13 +16,6 @@ export function formatDate(date: Date | string): string {
   return new Intl.DateTimeFormat("pt-BR").format(new Date(date));
 }
 
-export function formatDateTime(date: Date | string): string {
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(date));
-}
-
 export function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -39,9 +32,4 @@ export function getInitials(name: string): string {
     .join("")
     .toUpperCase()
     .slice(0, 2);
-}
-
-export function truncate(text: string, length: number): string {
-  if (text.length <= length) return text;
-  return text.slice(0, length) + "...";
 }

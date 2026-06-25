@@ -2,6 +2,7 @@ import NextAuth, { type NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import type { SessionUser } from "./types";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -13,7 +14,6 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          console.error("Missing credentials");
           return null;
         }
 
@@ -24,7 +24,6 @@ export const authOptions: NextAuthOptions = {
           });
 
           if (!user) {
-            console.error("User not found:", credentials.email);
             return null;
           }
 
@@ -34,7 +33,6 @@ export const authOptions: NextAuthOptions = {
           );
 
           if (!isPasswordValid) {
-            console.error("Invalid password for:", credentials.email);
             return null;
           }
 
@@ -47,8 +45,7 @@ export const authOptions: NextAuthOptions = {
             role: user.role,
             tenantSlug: user.tenant.slug,
           };
-        } catch (error) {
-          console.error("Auth error:", error);
+        } catch {
           return null;
         }
       },
@@ -57,18 +54,18 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.tenantId = (user as any).tenantId;
-        token.role = (user as any).role;
-        token.tenantSlug = (user as any).tenantSlug;
+        token.tenantId = (user as SessionUser).tenantId;
+        token.role = (user as SessionUser).role;
+        token.tenantSlug = (user as SessionUser).tenantSlug;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.sub;
-        (session.user as any).tenantId = token.tenantId;
-        (session.user as any).role = token.role;
-        (session.user as any).tenantSlug = token.tenantSlug;
+        (session.user as SessionUser).id = token.sub!;
+        (session.user as SessionUser).tenantId = token.tenantId;
+        (session.user as SessionUser).role = token.role;
+        (session.user as SessionUser).tenantSlug = token.tenantSlug;
       }
       return session;
     },

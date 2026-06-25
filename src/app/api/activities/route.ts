@@ -1,20 +1,17 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireSession } from "@/lib/session";
+import { createActivitySchema, updateActivitySchema } from "@/lib/validations/activity";
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { user, error } = await requireSession();
+  if (error) return error;
 
-  const tenantId = (session.user as any).tenantId;
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type");
   const status = searchParams.get("status");
 
-  const where: any = { tenantId };
+  const where: Record<string, unknown> = { tenantId: user.tenantId };
   if (type) where.type = type;
   if (status === "pending") where.completed = false;
   if (status === "completed") where.completed = true;
@@ -33,25 +30,24 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { user, error } = await requireSession();
+  if (error) return error;
 
-  const tenantId = (session.user as any).tenantId;
-  const userId = (session.user as any).id;
   const body = await req.json();
+  const result = createActivitySchema.safeParse(body);
+
+  if (!result.success) {
+    return NextResponse.json(
+      { error: result.error.issues[0].message },
+      { status: 400 }
+    );
+  }
 
   const activity = await prisma.activity.create({
     data: {
-      tenantId,
-      type: body.type,
-      title: body.title,
-      description: body.description,
-      dueDate: body.dueDate,
-      contactId: body.contactId,
-      dealId: body.dealId,
-      userId,
+      tenantId: user.tenantId,
+      userId: user.id,
+      ...result.data,
     },
     include: {
       contact: { select: { id: true, firstName: true, lastName: true } },
@@ -63,22 +59,38 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { user, error } = await requireSession();
+  if (error) return error;
 
   const body = await req.json();
-  const { id, ...data } = body;
+  const result = updateActivitySchema.safeParse(body);
 
-  if (data.completed) {
-    data.completedAt = new Date();
+  if (!result.success) {
+    return NextResponse.json(
+      { error: result.error.issues[0].message },
+      { status: 400 }
+    );
   }
 
-  const activity = await prisma.activity.update({
-    where: { id },
-    data,
+  const { id, ...data } = result.data;
+
+  const activity = await prisma.activity.findFirst({
+    where: { id, tenantId: user.tenantId },
   });
 
-  return NextResponse.json(activity);
+  if (!activity) {
+    return NextResponse.json({ error: "Activity not found" }, { status: 404 });
+  }
+
+  const updateData: Record<string, unknown> = { ...data };
+  if (data.completed) {
+    updateData.completedAt = new Date();
+  }
+
+  const updated = await prisma.activity.update({
+    where: { id },
+    data: updateData,
+  });
+
+  return NextResponse.json(updated);
 }

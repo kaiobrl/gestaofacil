@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Check, Zap, Shield, Users } from "lucide-react";
+import { Zap, Shield, Users } from "lucide-react";
 
 export default function LandingPage() {
   return (
