@@ -14,6 +14,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
+          console.error("[Auth] Missing credentials");
           return null;
         }
 
@@ -24,6 +25,7 @@ export const authOptions: NextAuthOptions = {
           });
 
           if (!user) {
+            console.error("[Auth] User not found:", credentials.email);
             return null;
           }
 
@@ -33,9 +35,11 @@ export const authOptions: NextAuthOptions = {
           );
 
           if (!isPasswordValid) {
+            console.error("[Auth] Invalid password for:", credentials.email);
             return null;
           }
 
+          console.log("[Auth] Login success for:", credentials.email);
           return {
             id: user.id,
             email: user.email,
@@ -45,7 +49,8 @@ export const authOptions: NextAuthOptions = {
             role: user.role,
             tenantSlug: user.tenant.slug,
           };
-        } catch {
+        } catch (error) {
+          console.error("[Auth] Error:", error);
           return null;
         }
       },
