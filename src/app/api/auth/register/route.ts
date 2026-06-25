@@ -86,8 +86,30 @@ export async function POST(req: Request) {
       },
       { status: 201 }
     );
-  } catch (error) {
-    console.error("Registration error:", error);
+  } catch (error: any) {
+    console.error("Registration error:", error?.message, error?.stack);
+
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json(
+        { error: "DATABASE_URL não configurada" },
+        { status: 500 }
+      );
+    }
+
+    if (error?.code === "P2002") {
+      return NextResponse.json(
+        { error: "Email ou empresa já cadastrados" },
+        { status: 400 }
+      );
+    }
+
+    if (error?.code?.startsWith("P")) {
+      return NextResponse.json(
+        { error: `Erro de banco de dados: ${error.code}` },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Erro interno do servidor" },
       { status: 500 }
