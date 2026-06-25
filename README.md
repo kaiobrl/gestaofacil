@@ -1,36 +1,121 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GestãoFácil
 
-## Getting Started
+CRM multi-tenant para gestão de contatos, negócios e pipeline de vendas.
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Frontend**: Next.js 16 + React 19 + TypeScript
+- **UI**: Tailwind CSS 4 + shadcn/ui
+- **Backend**: Next.js API Routes
+- **Banco**: PostgreSQL + Prisma ORM
+- **Auth**: NextAuth.js v4 (JWT + Credentials)
+
+## Funcionalidades
+
+- Autenticação (login/registro) com isolamento multi-tenant
+- Dashboard com métricas
+- Gestão de contatos com busca
+- Gestão de empresas
+- Pipeline de vendas com drag-and-drop
+- Gestão de negócios (deals) com estágios
+- Atividades (chamadas, emails, reuniões, notas)
+- Relatórios de desempenho
+- Configurações de perfil e empresa
+
+## Estrutura
+
+```
+src/
+├── app/
+│   ├── (auth)/           # Login e registro
+│   ├── (marketing)/      # Landing page
+│   ├── api/              # API REST
+│   └── dashboard/        # Área autenticada
+├── components/
+│   ├── layout/           # Sidebar, Header
+│   └── ui/               # Componentes shadcn/ui
+├── lib/
+│   ├── auth.ts           # Configuração NextAuth
+│   ├── prisma.ts         # Singleton Prisma
+│   └── utils.ts          # Helpers utilitários
+└── generated/            # Tipos Prisma gerados
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Pré-requisitos
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Node.js 18+
+- PostgreSQL (local ou Neon/Supabase)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Instalação
 
-## Learn More
+```bash
+# Clonar repositório
+git clone <url-do-repositorio>
+cd gestaofacil
 
-To learn more about Next.js, take a look at the following resources:
+# Instalar dependências
+npm install
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Configurar variáveis de ambiente
+cp .env.example .env
+# Edite o .env com suas credenciais
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Gerar cliente Prisma
+npx prisma generate
 
-## Deploy on Vercel
+# Sincronizar banco de dados
+npx prisma db push
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Iniciar desenvolvimento
+npm run dev
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Acesse http://localhost:3000
+
+## Variáveis de Ambiente
+
+```env
+DATABASE_URL="postgresql://user:password@host:5432/gestaofacil"
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="seu-segredo-aqui"
+```
+
+## Comandos
+
+```bash
+npm run dev          # Servidor de desenvolvimento
+npm run build        # Build de produção
+npm run start        # Iniciar produção
+npm run lint         # Verificar código
+
+npm run db:push      # Sincronizar schema com banco
+npm run db:migrate   # Criar migration
+npm run db:studio    # Abrir Prisma Studio
+```
+
+## Modelo de Dados
+
+Entidades principais:
+- **Tenant**: Empresa/organização (multi-tenant)
+- **User**: Usuários com roles (ADMIN/USER)
+- **Contact**: Contatos do CRM
+- **Company**: Empresas
+- **Deal**: Negócios/oportunidades
+- **Pipeline**: Fluxo de vendas com estágios
+- **Activity**: Atividades (chamadas, emails, reuniões)
+- **Task**: Tarefas
+
+## API Endpoints
+
+| Rota | Métodos | Descrição |
+|------|---------|-----------|
+| `/api/auth/register` | POST | Criar conta |
+| `/api/auth/[...nextauth]` | GET/POST | Autenticação |
+| `/api/contacts` | GET/POST | Listar/criar contatos |
+| `/api/companies` | GET/POST | Listar/criar empresas |
+| `/api/deals` | GET/POST/PATCH | Negócios |
+| `/api/activities` | GET/POST/PATCH | Atividades |
+
+## Deploy
+
+Consulte [DEPLOY.md](./DEPLOY.md) para instruções de deploy no Vercel + Neon.

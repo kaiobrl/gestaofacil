@@ -13,36 +13,44 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Email and password required");
+          console.error("Missing credentials");
+          return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-          include: { tenant: true },
-        });
+        try {
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email },
+            include: { tenant: true },
+          });
 
-        if (!user) {
-          throw new Error("User not found");
+          if (!user) {
+            console.error("User not found:", credentials.email);
+            return null;
+          }
+
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
+
+          if (!isPasswordValid) {
+            console.error("Invalid password for:", credentials.email);
+            return null;
+          }
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.avatar,
+            tenantId: user.tenantId,
+            role: user.role,
+            tenantSlug: user.tenant.slug,
+          };
+        } catch (error) {
+          console.error("Auth error:", error);
+          return null;
         }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-
-        if (!isPasswordValid) {
-          throw new Error("Invalid password");
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.avatar,
-          tenantId: user.tenantId,
-          role: user.role,
-          tenantSlug: user.tenant.slug,
-        };
       },
     }),
   ],
