@@ -1,0 +1,316 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+  plan      String   @default("FREE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  subscriptions Subscription[]
+  invitations   Invitation[]
+
+  @@map("tenants")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  password  String
+  avatar    String?
+  role      String   @default("USER")
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant              Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sessions            Session[]
+  activities          Activity[]
+  communications      Communication[]
+  comments            Comment[]
+  assignedDeals       Deal[]          @relation("DealOwner")
+  createdDeals        Deal[]          @relation("DealCreator")
+  assignedTasks       Task[]          @relation("TaskAssignee")
+  createdTasks        Task[]          @relation("TaskCreator")
+
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Subscription {
+  id                 String   @id @default(uuid())
+  tenantId           String
+  stripeId           String?  @unique
+  stripePriceId      String?
+  status             String   @default("ACTIVE")
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model Invitation {
+  id        String   @id @default(uuid())
+  email     String
+  role      String   @default("USER")
+  tenantId  String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("invitations")
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  tenantId  String
+  firstName String
+  lastName  String?
+  email     String?
+  phone     String?
+  company   String?
+  jobTitle  String?
+  address   String?
+  city      String?
+  state     String?
+  country   String?
+  zipCode   String?
+  website   String?
+  notes     String?
+  tags      String   @default("")
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deals          Deal[]
+  activities     Activity[]
+  communications Communication[]
+  comments       Comment[]
+  files          File[]
+  tasks          Task[]
+
+  @@map("contacts")
+}
+
+model Deal {
+  id            String   @id @default(uuid())
+  tenantId      String
+  title         String
+  value         Float    @default(0)
+  currency      String   @default("BRL")
+  stage         String   @default("lead")
+  status        String   @default("OPEN")
+  probability   Int      @default(0)
+  expectedClose DateTime?
+  actualClose   DateTime?
+  lostReason    String?
+  contactId     String?
+  companyId     String?
+  ownerId       String
+  createdById   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  contact    Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  company    Company?    @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  owner      User        @relation("DealOwner", fields: [ownerId], references: [id])
+  createdBy  User        @relation("DealCreator", fields: [createdById], references: [id])
+  activities Activity[]
+  comments   Comment[]
+
+  @@map("deals")
+}
+
+model Pipeline {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stages PipelineStage[]
+
+  @@map("pipelines")
+}
+
+model PipelineStage {
+  id         String   @id @default(uuid())
+  tenantId   String
+  pipelineId String
+  name       String
+  order      Int
+  color      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  @@map("pipeline_stages")
+}
+
+model Company {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  industry  String?
+  size      String?
+  website   String?
+  email     String?
+  phone     String?
+  address   String?
+  city      String?
+  state     String?
+  country   String?
+  zipCode   String?
+  notes     String?
+  logo      String?
+  tags      String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deals Deal[]
+  files File[]
+
+  @@map("companies")
+}
+
+model Activity {
+  id          String   @id @default(uuid())
+  tenantId    String
+  type        String
+  title       String
+  description String?
+  dueDate     DateTime?
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+  contactId   String?
+  dealId      String?
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  deal    Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  user    User     @relation(fields: [userId], references: [id])
+
+  @@map("activities")
+}
+
+model Communication {
+  id        String   @id @default(uuid())
+  tenantId  String
+  type      String
+  subject   String?
+  content   String?
+  contactId String?
+  dealId    String?
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  user    User     @relation(fields: [userId], references: [id])
+
+  @@map("communications")
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  tenantId    String
+  title       String
+  description String?
+  status      String   @default("PENDING")
+  priority    String   @default("MEDIUM")
+  dueDate     DateTime?
+  completedAt DateTime?
+  contactId   String?
+  dealId      String?
+  assigneeId  String
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  contact  Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  assignee User     @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdBy User    @relation("TaskCreator", fields: [createdById], references: [id])
+
+  @@map("tasks")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  tenantId  String
+  content   String
+  dealId    String?
+  contactId String?
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deal    Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  user    User     @relation(fields: [userId], references: [id])
+
+  @@map("comments")
+}
+
+model File {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  url       String
+  type      String
+  size      Int
+  contactId String?
+  dealId    String?
+  companyId String?
+  userId    String
+  createdAt DateTime @default(now())
+
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@map("files")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  tenantId  String
+  userId    String
+  title     String
+  message   String
+  type      String
+  read      Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
