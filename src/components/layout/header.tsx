@@ -11,16 +11,28 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 import { getInitials } from "@/lib/utils";
 
-export function Header() {
+interface HeaderProps {
+  onMenuToggle?: () => void;
+}
+
+export function Header({ onMenuToggle }: HeaderProps) {
   const { data: session } = useSession();
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-white px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-white px-4 md:px-6">
       <div className="flex items-center space-x-4">
-        <h1 className="text-lg font-semibold text-gray-800">
+        {onMenuToggle && (
+          <button
+            onClick={onMenuToggle}
+            className="rounded-lg p-2 hover:bg-gray-100 md:hidden"
+          >
+            <Menu className="h-6 w-6" />
+          </button>
+        )}
+        <h1 className="text-base font-semibold text-gray-800 md:text-lg">
           {session?.user?.tenantSlug
             ? "Painel de Controle"
             : "GestãoFácil"}

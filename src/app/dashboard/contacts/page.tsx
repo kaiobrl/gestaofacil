@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { MobileTableCard } from "@/components/mobile-table-card";
 
 interface Contact {
   id: string;
@@ -125,7 +126,7 @@ export default function ContactsPage() {
                 <DialogTitle>{editingId ? "Editar Contato" : "Novo Contato"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Nome *</Label>
                     <Input value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} required />
@@ -159,7 +160,7 @@ export default function ContactsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex justify-end space-x-2">
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
                   <Button type="submit">Salvar</Button>
                 </div>
@@ -172,7 +173,33 @@ export default function ContactsPage() {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <Input placeholder="Buscar contatos..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
       </div>
-      <div className="rounded-lg border bg-white">
+      {loading ? (
+        <div className="text-center py-8 text-gray-500 md:hidden">Carregando...</div>
+      ) : contacts.length === 0 ? (
+        <div className="md:hidden">
+          <EmptyState icon={Users} title="Nenhum contato encontrado" description="Adicione seu primeiro contato" />
+        </div>
+      ) : (
+        <div className="space-y-3 md:hidden">
+          {contacts.map((contact) => (
+            <MobileTableCard
+              key={contact.id}
+              title={`${contact.firstName} ${contact.lastName || ""}`}
+              subtitle={contact.jobTitle || undefined}
+              fields={[
+                ...(contact.email ? [{ icon: Mail, label: "Email", value: contact.email }] : []),
+                ...(contact.phone ? [{ icon: Phone, label: "Telefone", value: contact.phone }] : []),
+                ...(contact.company ? [{ label: "Empresa", value: contact.company.name }] : []),
+              ]}
+              actions={[
+                { icon: Pencil, label: "Editar", onClick: () => openEdit(contact) },
+                { icon: Trash2, label: "Excluir", onClick: () => handleDelete(contact.id), variant: "destructive" },
+              ]}
+            />
+          ))}
+        </div>
+      )}
+      <div className="hidden rounded-lg border bg-white md:block">
         <Table>
           <TableHeader>
             <TableRow>

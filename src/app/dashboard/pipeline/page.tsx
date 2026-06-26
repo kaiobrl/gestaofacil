@@ -180,14 +180,14 @@ export default function PipelinePage() {
       {loading ? (
         <div className="text-center py-12 text-gray-500">Carregando...</div>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-4 overflow-x-auto pb-4 scroll-snap-x">
           {defaultStages.map((stage) => {
             const stageDeals = getDealsByStage(stage.id);
             const stageTotal = getStageTotal(stage.id);
             return (
               <div
                 key={stage.id}
-                className="flex-shrink-0 w-80"
+                className="flex-shrink-0 w-72 md:w-80 scroll-snap-start"
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, stage.id)}
               >

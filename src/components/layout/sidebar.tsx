@@ -29,7 +29,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r bg-white">
+    <aside className="hidden md:block fixed left-0 top-0 z-40 h-screen w-64 border-r bg-white">
       <div className="flex h-16 items-center border-b px-6">
         <Link href="/dashboard" className="flex items-center space-x-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white font-bold">

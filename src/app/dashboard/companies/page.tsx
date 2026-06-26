@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Search, Building2, Globe, Pencil, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { MobileTableCard } from "@/components/mobile-table-card";
 
 interface Company {
   id: string;
@@ -115,7 +116,7 @@ export default function CompaniesPage() {
                   <Label>Nome *</Label>
                   <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Setor</Label>
                     <Input value={formData.industry} onChange={(e) => setFormData({ ...formData, industry: e.target.value })} />
@@ -137,7 +138,7 @@ export default function CompaniesPage() {
                   <Label>Telefone</Label>
                   <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
                 </div>
-                <div className="flex justify-end space-x-2">
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
                   <Button type="submit">Salvar</Button>
                 </div>
@@ -150,7 +151,34 @@ export default function CompaniesPage() {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <Input placeholder="Buscar empresas..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
       </div>
-      <div className="rounded-lg border bg-white">
+      {loading ? (
+        <div className="text-center py-8 text-gray-500 md:hidden">Carregando...</div>
+      ) : companies.length === 0 ? (
+        <div className="md:hidden">
+          <EmptyState icon={Building2} title="Nenhuma empresa encontrada" description="Adicione sua primeira empresa" />
+        </div>
+      ) : (
+        <div className="space-y-3 md:hidden">
+          {companies.map((company) => (
+            <MobileTableCard
+              key={company.id}
+              icon={Building2}
+              title={company.name}
+              subtitle={company.size || undefined}
+              fields={[
+                ...(company.industry ? [{ label: "Setor", value: company.industry }] : []),
+                { label: "Negócios", value: `${company._count.deals} negócio(s)` },
+                ...(company.website ? [{ icon: Globe, label: "Website", value: "Link" }] : []),
+              ]}
+              actions={[
+                { icon: Pencil, label: "Editar", onClick: () => openEdit(company) },
+                { icon: Trash2, label: "Excluir", onClick: () => handleDelete(company.id), variant: "destructive" },
+              ]}
+            />
+          ))}
+        </div>
+      )}
+      <div className="hidden rounded-lg border bg-white md:block">
         <Table>
           <TableHeader>
             <TableRow>

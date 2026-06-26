@@ -12,6 +12,7 @@ import { Plus, Search, DollarSign, Handshake, Pencil, Trash2 } from "lucide-reac
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { MobileTableCard } from "@/components/mobile-table-card";
 
 interface Deal {
   id: string;
@@ -166,7 +167,7 @@ export default function DealsPage() {
                   <Label>Título *</Label>
                   <Input value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} required />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Valor</Label>
                     <Input type="number" step="0.01" value={formData.value} onChange={(e) => setFormData({ ...formData, value: e.target.value })} />
@@ -207,7 +208,7 @@ export default function DealsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex justify-end space-x-2">
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
                   <Button type="submit">Salvar</Button>
                 </div>
@@ -220,7 +221,36 @@ export default function DealsPage() {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <Input placeholder="Buscar negócios..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
       </div>
-      <div className="rounded-lg border bg-white">
+      {loading ? (
+        <div className="text-center py-8 text-gray-500 md:hidden">Carregando...</div>
+      ) : filteredDeals.length === 0 ? (
+        <div className="md:hidden">
+          <EmptyState icon={Handshake} title="Nenhum negócio encontrado" description="Adicione seu primeiro negócio" />
+        </div>
+      ) : (
+        <div className="space-y-3 md:hidden">
+          {filteredDeals.map((deal) => (
+            <MobileTableCard
+              key={deal.id}
+              icon={Handshake}
+              iconBg="bg-blue-100"
+              iconColor="text-blue-600"
+              title={deal.title}
+              subtitle={deal.company?.name || undefined}
+              fields={[
+                { icon: DollarSign, label: "Valor", value: formatCurrency(deal.value) },
+                { label: "Estágio", value: stages.find((s) => s.value === deal.stage)?.label || deal.stage },
+                { label: "Responsável", value: deal.owner.name },
+              ]}
+              actions={[
+                { icon: Pencil, label: "Editar", onClick: () => openEdit(deal) },
+                { icon: Trash2, label: "Excluir", onClick: () => handleDelete(deal.id), variant: "destructive" },
+              ]}
+            />
+          ))}
+        </div>
+      )}
+      <div className="hidden rounded-lg border bg-white md:block">
         <Table>
           <TableHeader>
             <TableRow>

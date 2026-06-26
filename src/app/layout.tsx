@@ -13,6 +13,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export const metadata: Metadata = {
   title: "GestãoFácil - CRM para Negócios que Crescem",
   description: "Gerencie seus contatos, negócios e pipeline de vendas em um só lugar.",

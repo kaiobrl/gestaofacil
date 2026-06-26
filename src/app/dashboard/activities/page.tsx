@@ -204,7 +204,50 @@ export default function ActivitiesPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex justify-end space-x-2">
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <Label>Tipo</Label>
+                  <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v ?? "CALL" })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{activityTypes.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Título *</Label>
+                  <Input value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Descrição</Label>
+                  <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Data/Hora</Label>
+                  <Input type="datetime-local" value={formData.dueDate} onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Contato</Label>
+                  <Select value={formData.contactId} onValueChange={(v) => setFormData({ ...formData, contactId: v ?? "" })}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar contato" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhum</SelectItem>
+                      {contacts.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Negócio</Label>
+                  <Select value={formData.dealId} onValueChange={(v) => setFormData({ ...formData, dealId: v ?? "" })}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar negócio" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhum</SelectItem>
+                      {deals.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>{d.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
                   <Button type="submit">Salvar</Button>
                 </div>
@@ -236,14 +279,14 @@ export default function ActivitiesPage() {
                         </div>
                         <div>
                           <p className="font-medium">{activity.title}</p>
-                          <div className="flex items-center space-x-2 text-sm text-gray-500">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 sm:text-sm">
                             {activity.dueDate && <span>{formatDate(activity.dueDate)}</span>}
                             {activity.contact && <span>• {activity.contact.firstName} {activity.contact.lastName}</span>}
                             {activity.deal && <span>• {activity.deal.title}</span>}
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon" onClick={() => handleToggleComplete(activity.id, false)}>
                           <Check className="h-4 w-4" />
                         </Button>
@@ -277,7 +320,7 @@ export default function ActivitiesPage() {
                         </div>
                         <p className="font-medium line-through">{activity.title}</p>
                       </div>
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon" onClick={() => handleToggleComplete(activity.id, true)}>
                           <Undo2 className="h-4 w-4" />
                         </Button>

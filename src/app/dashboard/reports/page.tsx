@@ -76,8 +76,8 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div><h2 className="text-2xl font-bold text-gray-900">Relatórios</h2><p className="text-gray-600">Análise de desempenho do seu CRM</p></div>
-      <div className="grid gap-6 md:grid-cols-2">
+      <div><h2 className="text-xl font-bold text-gray-900 md:text-2xl">Relatórios</h2><p className="text-gray-600">Análise de desempenho do seu CRM</p></div>
+      <div className="grid gap-4 md:grid-cols-2 md:gap-6">
         <Card>
           <CardHeader><CardTitle className="flex items-center"><DollarSign className="mr-2 h-5 w-5" />Receita por Estágio</CardTitle></CardHeader>
           <CardContent>
