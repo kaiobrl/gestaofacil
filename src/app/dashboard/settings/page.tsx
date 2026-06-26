@@ -103,7 +103,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div><h2 className="text-xl font-bold text-gray-900 md:text-2xl">Configurações</h2><p className="text-gray-600">Gerencie as configurações da sua conta</p></div>
+      <div><h2 className="text-xl font-bold text-foreground md:text-2xl">Configurações</h2><p className="text-muted-foreground">Gerencie as configurações da sua conta</p></div>
       <div className="grid gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
         <Card>
           <CardHeader><CardTitle className="flex items-center text-lg"><User className="mr-2 h-5 w-5" />Perfil</CardTitle></CardHeader>

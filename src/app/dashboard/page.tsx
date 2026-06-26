@@ -84,14 +84,14 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-gray-900 md:text-2xl">Dashboard</h2>
-        <p className="text-gray-600">Visão geral do seu CRM</p>
+        <h2 className="text-xl font-bold text-foreground md:text-2xl">Dashboard</h2>
+        <p className="text-muted-foreground">Visão geral do seu CRM</p>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-4">
         {statCards.map((stat) => (
           <Card key={stat.title}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">{stat.title}</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
               <div className={`rounded-lg p-2 ${stat.bg}`}>
                 <stat.icon className={`h-4 w-4 ${stat.color}`} />
               </div>
