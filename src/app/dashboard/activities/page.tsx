@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Check, Phone, Mail, Video, FileText, CheckSquare } from "lucide-react";
+import { Plus, Check, Phone, Mail, Video, FileText, CheckSquare, Pencil, Trash2, Undo2 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -21,8 +21,12 @@ interface Activity {
   description: string | null;
   dueDate: string | null;
   completed: boolean;
-  contact: { firstName: string; lastName: string | null } | null;
+  contact: { id: string; firstName: string; lastName: string | null } | null;
+  deal: { id: string; title: string } | null;
 }
+
+interface ContactOption { id: string; firstName: string; lastName: string | null; }
+interface DealOption { id: string; title: string; }
 
 const activityTypes = [
   { value: "CALL", label: "Ligação", icon: Phone, color: "text-blue-600" },
@@ -31,20 +35,33 @@ const activityTypes = [
   { value: "NOTE", label: "Nota", icon: FileText, color: "text-gray-600" },
 ];
 
+const emptyForm = { type: "CALL", title: "", description: "", dueDate: "", contactId: "", dealId: "" };
+
 export default function ActivitiesPage() {
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [contacts, setContacts] = useState<ContactOption[]>([]);
+  const [deals, setDeals] = useState<DealOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({ type: "CALL", title: "", description: "", dueDate: "" });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState(emptyForm);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const res = await fetch("/api/activities");
-        const data = await res.json();
-        setActivities(data.activities || []);
+        const [actRes, contRes, dealRes] = await Promise.all([
+          fetch("/api/activities"),
+          fetch("/api/contacts?limit=100"),
+          fetch("/api/deals"),
+        ]);
+        const actData = await actRes.json();
+        const contData = await contRes.json();
+        const dealData = await dealRes.json();
+        setActivities(actData.activities || []);
+        setContacts(contData.contacts || []);
+        setDeals(dealData.deals || []);
       } catch (error) {
         console.error(error);
       } finally {
@@ -57,32 +74,72 @@ export default function ActivitiesPage() {
 
   const refresh = () => setRefreshKey((k) => k + 1);
 
-  const handleComplete = async (id: string) => {
+  const openCreate = () => {
+    setEditingId(null);
+    setFormData(emptyForm);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (activity: Activity) => {
+    setEditingId(activity.id);
+    setFormData({
+      type: activity.type,
+      title: activity.title,
+      description: activity.description || "",
+      dueDate: activity.dueDate ? activity.dueDate.slice(0, 16) : "",
+      contactId: activity.contact?.id || "",
+      dealId: activity.deal?.id || "",
+    });
+    setDialogOpen(true);
+  };
+
+  const handleToggleComplete = async (id: string, completed: boolean) => {
     await fetch("/api/activities", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, completed: true }),
+      body: JSON.stringify({ id, completed: !completed }),
+    });
+    refresh();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Tem certeza que deseja excluir esta atividade?")) return;
+    await fetch("/api/activities", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
     });
     refresh();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch("/api/activities", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: formData.type,
-        title: formData.title,
-        description: formData.description,
-        dueDate: formData.dueDate || undefined,
-      }),
-    });
-    if (res.ok) {
-      setDialogOpen(false);
-      setFormData({ type: "CALL", title: "", description: "", dueDate: "" });
-      refresh();
+    const payload = {
+      type: formData.type,
+      title: formData.title,
+      description: formData.description || undefined,
+      dueDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : undefined,
+      contactId: formData.contactId || undefined,
+      dealId: formData.dealId || undefined,
+    };
+
+    if (editingId) {
+      await fetch("/api/activities", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingId, ...payload }),
+      });
+    } else {
+      await fetch("/api/activities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
     }
+    setDialogOpen(false);
+    setFormData(emptyForm);
+    setEditingId(null);
+    refresh();
   };
 
   const getTypeInfo = (type: string) => activityTypes.find((t) => t.value === type) || activityTypes[0];
@@ -96,14 +153,12 @@ export default function ActivitiesPage() {
         description="Gerencie suas tarefas e atividades"
         action={
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" /> Nova Atividade
-              </Button>
+            <DialogTrigger render={<Button />}>
+              <Plus className="mr-2 h-4 w-4" /> Nova Atividade
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Nova Atividade</DialogTitle>
+                <DialogTitle>{editingId ? "Editar Atividade" : "Nova Atividade"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -124,6 +179,30 @@ export default function ActivitiesPage() {
                 <div className="space-y-2">
                   <Label>Data/Hora</Label>
                   <Input type="datetime-local" value={formData.dueDate} onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Contato</Label>
+                  <Select value={formData.contactId} onValueChange={(v) => setFormData({ ...formData, contactId: v ?? "" })}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar contato" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhum</SelectItem>
+                      {contacts.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Negócio</Label>
+                  <Select value={formData.dealId} onValueChange={(v) => setFormData({ ...formData, dealId: v ?? "" })}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar negócio" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhum</SelectItem>
+                      {deals.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>{d.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
@@ -160,12 +239,21 @@ export default function ActivitiesPage() {
                           <div className="flex items-center space-x-2 text-sm text-gray-500">
                             {activity.dueDate && <span>{formatDate(activity.dueDate)}</span>}
                             {activity.contact && <span>• {activity.contact.firstName} {activity.contact.lastName}</span>}
+                            {activity.deal && <span>• {activity.deal.title}</span>}
                           </div>
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => handleComplete(activity.id)}>
-                        <Check className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center space-x-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleToggleComplete(activity.id, false)}>
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(activity)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(activity.id)}>
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
                     </div>
                   );
                 })}
@@ -189,7 +277,14 @@ export default function ActivitiesPage() {
                         </div>
                         <p className="font-medium line-through">{activity.title}</p>
                       </div>
-                      <Badge variant="secondary">Concluída</Badge>
+                      <div className="flex items-center space-x-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleToggleComplete(activity.id, true)}>
+                          <Undo2 className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(activity.id)}>
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
                     </div>
                   );
                 })}

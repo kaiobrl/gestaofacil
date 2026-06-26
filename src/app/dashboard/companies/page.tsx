@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Building2, Globe } from "lucide-react";
+import { Plus, Search, Building2, Globe, Pencil, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 
@@ -22,12 +22,15 @@ interface Company {
   _count: { deals: number; contacts: number };
 }
 
+const emptyForm = { name: "", industry: "", size: "", website: "", email: "", phone: "" };
+
 export default function CompaniesPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({ name: "", industry: "", size: "", website: "", email: "", phone: "" });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState(emptyForm);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -51,21 +54,45 @@ export default function CompaniesPage() {
 
   const refresh = () => setRefreshKey((k) => k + 1);
 
+  const openCreate = () => {
+    setEditingId(null);
+    setFormData(emptyForm);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (company: Company) => {
+    setEditingId(company.id);
+    setFormData({
+      name: company.name,
+      industry: company.industry || "",
+      size: company.size || "",
+      website: company.website || "",
+      email: company.email || "",
+      phone: company.phone || "",
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Tem certeza que deseja excluir esta empresa?")) return;
+    await fetch(`/api/companies/${id}`, { method: "DELETE" });
+    refresh();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      const res = await fetch("/api/companies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-      if (res.ok) {
-        setDialogOpen(false);
-        setFormData({ name: "", industry: "", size: "", website: "", email: "", phone: "" });
-        refresh();
-      }
-    } catch (error) {
-      console.error(error);
+    const url = editingId ? `/api/companies/${editingId}` : "/api/companies";
+    const method = editingId ? "PATCH" : "POST";
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
+    if (res.ok) {
+      setDialogOpen(false);
+      setFormData(emptyForm);
+      setEditingId(null);
+      refresh();
     }
   };
 
@@ -76,14 +103,12 @@ export default function CompaniesPage() {
         description="Gerencie suas empresas"
         action={
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" /> Nova Empresa
-              </Button>
+            <DialogTrigger render={<Button />}>
+              <Plus className="mr-2 h-4 w-4" /> Nova Empresa
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Nova Empresa</DialogTitle>
+                <DialogTitle>{editingId ? "Editar Empresa" : "Nova Empresa"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -103,6 +128,14 @@ export default function CompaniesPage() {
                 <div className="space-y-2">
                   <Label>Website</Label>
                   <Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Telefone</Label>
+                  <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
                 </div>
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
@@ -125,16 +158,17 @@ export default function CompaniesPage() {
               <TableHead>Setor</TableHead>
               <TableHead>Negócios</TableHead>
               <TableHead>Website</TableHead>
+              <TableHead className="w-[100px]">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8">Carregando...</TableCell>
+                <TableCell colSpan={5} className="text-center py-8">Carregando...</TableCell>
               </TableRow>
             ) : companies.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4}>
+                <TableCell colSpan={5}>
                   <EmptyState icon={Building2} title="Nenhuma empresa encontrada" description="Adicione sua primeira empresa" />
                 </TableCell>
               </TableRow>
@@ -159,6 +193,16 @@ export default function CompaniesPage() {
                       <Globe className="mr-1 h-4 w-4" />Link
                     </a>
                   )}
+                </TableCell>
+                <TableCell>
+                  <div className="flex space-x-1">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(company)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(company.id)}>
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

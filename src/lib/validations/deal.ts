@@ -6,9 +6,9 @@ export const createDealSchema = z.object({
   stage: z.string().optional(),
   probability: z.number().min(0).max(100).optional(),
   expectedClose: z.string().datetime().optional(),
-  contactId: z.string().uuid("ID do contato inválido").optional().or(z.literal("")),
-  companyId: z.string().uuid("ID da empresa inválido").optional().or(z.literal("")),
-  ownerId: z.string().uuid("ID do responsável inválido").optional().or(z.literal("")),
+  contactId: z.string().uuid("ID do contato inválido").optional().or(z.literal("")).transform(v => v || undefined),
+  companyId: z.string().uuid("ID da empresa inválido").optional().or(z.literal("")).transform(v => v || undefined),
+  ownerId: z.string().uuid("ID do responsável inválido").optional().or(z.literal("")).transform(v => v || undefined),
 });
 
 export const updateDealSchema = z.object({
@@ -19,9 +19,9 @@ export const updateDealSchema = z.object({
   status: z.string().optional(),
   probability: z.number().min(0).max(100).optional(),
   expectedClose: z.string().datetime().optional(),
-  contactId: z.string().uuid().optional().or(z.literal("")),
-  companyId: z.string().uuid().optional().or(z.literal("")),
-  ownerId: z.string().uuid().optional().or(z.literal("")),
+  contactId: z.string().uuid().optional().or(z.literal("")).transform(v => v || undefined),
+  companyId: z.string().uuid().optional().or(z.literal("")).transform(v => v || undefined),
+  ownerId: z.string().uuid().optional().or(z.literal("")).transform(v => v || undefined),
   lostReason: z.string().optional(),
 });
 

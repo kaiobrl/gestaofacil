@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, DollarSign, Handshake } from "lucide-react";
+import { Plus, Search, DollarSign, Handshake, Pencil, Trash2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -20,10 +20,13 @@ interface Deal {
   stage: string;
   status: string;
   probability: number;
-  contact: { firstName: string; lastName: string | null } | null;
+  contact: { id: string; firstName: string; lastName: string | null } | null;
   company: { id: string; name: string } | null;
   owner: { name: string };
 }
+
+interface ContactOption { id: string; firstName: string; lastName: string | null; }
+interface CompanyOption { id: string; name: string; }
 
 const stages = [
   { value: "lead", label: "Lead" },
@@ -43,21 +46,34 @@ const stageColors: Record<string, string> = {
   perdido: "bg-red-100 text-red-800",
 };
 
+const emptyForm = { title: "", value: "", stage: "lead", probability: "0", contactId: "", companyId: "" };
+
 export default function DealsPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [contacts, setContacts] = useState<ContactOption[]>([]);
+  const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({ title: "", value: "", stage: "lead", probability: "0" });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState(emptyForm);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const res = await fetch("/api/deals");
-        const data = await res.json();
-        setDeals(data.deals || []);
+        const [dealsRes, contactsRes, companiesRes] = await Promise.all([
+          fetch("/api/deals"),
+          fetch("/api/contacts?limit=100"),
+          fetch("/api/companies?limit=100"),
+        ]);
+        const dealsData = await dealsRes.json();
+        const contactsData = await contactsRes.json();
+        const companiesData = await companiesRes.json();
+        setDeals(dealsData.deals || []);
+        setContacts(contactsData.contacts || []);
+        setCompanies(companiesData.companies || []);
       } catch (error) {
         console.error(error);
       } finally {
@@ -70,23 +86,63 @@ export default function DealsPage() {
 
   const refresh = () => setRefreshKey((k) => k + 1);
 
+  const openCreate = () => {
+    setEditingId(null);
+    setFormData(emptyForm);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (deal: Deal) => {
+    setEditingId(deal.id);
+    setFormData({
+      title: deal.title,
+      value: String(deal.value),
+      stage: deal.stage,
+      probability: String(deal.probability),
+      contactId: deal.contact?.id || "",
+      companyId: deal.company?.id || "",
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Tem certeza que deseja excluir este negócio?")) return;
+    await fetch("/api/deals", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    refresh();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch("/api/deals", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: formData.title,
-        value: parseFloat(formData.value) || 0,
-        stage: formData.stage,
-        probability: parseInt(formData.probability) || 0,
-      }),
-    });
-    if (res.ok) {
-      setDialogOpen(false);
-      setFormData({ title: "", value: "", stage: "lead", probability: "0" });
-      refresh();
+    const payload = {
+      title: formData.title,
+      value: parseFloat(formData.value) || 0,
+      stage: formData.stage,
+      probability: parseInt(formData.probability) || 0,
+      contactId: formData.contactId || undefined,
+      companyId: formData.companyId || undefined,
+    };
+
+    if (editingId) {
+      await fetch("/api/deals", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingId, ...payload }),
+      });
+    } else {
+      await fetch("/api/deals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
     }
+    setDialogOpen(false);
+    setFormData(emptyForm);
+    setEditingId(null);
+    refresh();
   };
 
   const filteredDeals = deals.filter((d) => d.title.toLowerCase().includes(search.toLowerCase()));
@@ -98,14 +154,12 @@ export default function DealsPage() {
         description="Gerencie seus negócios e oportunidades"
         action={
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" /> Novo Negócio
-              </Button>
+            <DialogTrigger render={<Button />}>
+              <Plus className="mr-2 h-4 w-4" /> Novo Negócio
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Novo Negócio</DialogTitle>
+                <DialogTitle>{editingId ? "Editar Negócio" : "Novo Negócio"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -127,6 +181,30 @@ export default function DealsPage() {
                   <Select value={formData.stage} onValueChange={(v) => setFormData({ ...formData, stage: v ?? "lead" })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{stages.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Contato</Label>
+                  <Select value={formData.contactId} onValueChange={(v) => setFormData({ ...formData, contactId: v ?? "" })}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar contato" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhum</SelectItem>
+                      {contacts.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Empresa</Label>
+                  <Select value={formData.companyId} onValueChange={(v) => setFormData({ ...formData, companyId: v ?? "" })}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar empresa" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhuma</SelectItem>
+                      {companies.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 </div>
                 <div className="flex justify-end space-x-2">
@@ -151,16 +229,17 @@ export default function DealsPage() {
               <TableHead>Estágio</TableHead>
               <TableHead>Probabilidade</TableHead>
               <TableHead>Responsável</TableHead>
+              <TableHead className="w-[100px]">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">Carregando...</TableCell>
+                <TableCell colSpan={6} className="text-center py-8">Carregando...</TableCell>
               </TableRow>
             ) : filteredDeals.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5}>
+                <TableCell colSpan={6}>
                   <EmptyState icon={Handshake} title="Nenhum negócio encontrado" description="Adicione seu primeiro negócio" />
                 </TableCell>
               </TableRow>
@@ -189,6 +268,16 @@ export default function DealsPage() {
                 </TableCell>
                 <TableCell>{deal.probability}%</TableCell>
                 <TableCell className="text-sm text-gray-600">{deal.owner.name}</TableCell>
+                <TableCell>
+                  <div className="flex space-x-1">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(deal)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(deal.id)}>
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

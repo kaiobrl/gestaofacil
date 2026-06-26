@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, DollarSign, GripVertical } from "lucide-react";
+import { Plus, DollarSign, GripVertical, Pencil, Trash2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 
@@ -34,11 +34,14 @@ const defaultStages: Stage[] = [
   { id: "perdido", name: "Perdido", color: "#EF4444" },
 ];
 
+const emptyForm = { title: "", value: "", stage: "lead" };
+
 export default function PipelinePage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({ title: "", value: "", stage: "lead" });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState(emptyForm);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -82,22 +85,57 @@ export default function PipelinePage() {
     setDeals((prev) => prev.map((d) => (d.id === dealId ? { ...d, stage: stageId } : d)));
   };
 
+  const openCreate = () => {
+    setEditingId(null);
+    setFormData(emptyForm);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (deal: Deal) => {
+    setEditingId(deal.id);
+    setFormData({
+      title: deal.title,
+      value: String(deal.value),
+      stage: deal.stage,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Tem certeza que deseja excluir este deal?")) return;
+    await fetch("/api/deals", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    refresh();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch("/api/deals", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: formData.title,
-        value: parseFloat(formData.value) || 0,
-        stage: formData.stage,
-      }),
-    });
-    if (res.ok) {
-      setDialogOpen(false);
-      setFormData({ title: "", value: "", stage: "lead" });
-      refresh();
+    const payload = {
+      title: formData.title,
+      value: parseFloat(formData.value) || 0,
+      stage: formData.stage,
+    };
+
+    if (editingId) {
+      await fetch("/api/deals", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingId, ...payload }),
+      });
+    } else {
+      await fetch("/api/deals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
     }
+    setDialogOpen(false);
+    setFormData(emptyForm);
+    setEditingId(null);
+    refresh();
   };
 
   return (
@@ -107,14 +145,12 @@ export default function PipelinePage() {
         description="Arraste os deals entre estágios"
         action={
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" /> Novo Deal
-              </Button>
+            <DialogTrigger render={<Button />}>
+              <Plus className="mr-2 h-4 w-4" /> Novo Deal
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Novo Deal</DialogTitle>
+                <DialogTitle>{editingId ? "Editar Deal" : "Novo Deal"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -174,7 +210,15 @@ export default function PipelinePage() {
                       >
                         <div className="flex items-start justify-between">
                           <h4 className="font-medium text-sm">{deal.title}</h4>
-                          <GripVertical className="h-4 w-4 text-gray-400" />
+                          <div className="flex items-center space-x-1">
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEdit(deal)}>
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDelete(deal.id)}>
+                              <Trash2 className="h-3 w-3 text-red-500" />
+                            </Button>
+                            <GripVertical className="h-4 w-4 text-gray-400" />
+                          </div>
                         </div>
                         <div className="mt-2 flex items-center text-sm text-green-600 font-medium">
                           <DollarSign className="h-4 w-4" />{formatCurrency(deal.value)}

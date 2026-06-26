@@ -7,8 +7,8 @@ export const createActivitySchema = z.object({
   title: z.string().min(1, "Título é obrigatório"),
   description: z.string().optional(),
   dueDate: z.string().datetime().optional(),
-  contactId: z.string().uuid("ID do contato inválido").optional().or(z.literal("")),
-  dealId: z.string().uuid("ID do negócio inválido").optional().or(z.literal("")),
+  contactId: z.string().uuid("ID do contato inválido").optional().or(z.literal("")).transform(v => v || undefined),
+  dealId: z.string().uuid("ID do negócio inválido").optional().or(z.literal("")).transform(v => v || undefined),
 });
 
 export const updateActivitySchema = z.object({
@@ -17,6 +17,8 @@ export const updateActivitySchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
   dueDate: z.string().datetime().optional(),
+  contactId: z.string().uuid().optional().or(z.literal("")).transform(v => v || undefined),
+  dealId: z.string().uuid().optional().or(z.literal("")).transform(v => v || undefined),
 });
 
 export type CreateActivityInput = z.infer<typeof createActivitySchema>;

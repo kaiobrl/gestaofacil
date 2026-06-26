@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Mail, Phone, Users } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Search, Mail, Phone, Users, Pencil, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
@@ -24,12 +25,21 @@ interface Contact {
   tags: string;
 }
 
+interface CompanyOption {
+  id: string;
+  name: string;
+}
+
+const emptyForm = { firstName: "", lastName: "", email: "", phone: "", companyId: "", jobTitle: "" };
+
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({ firstName: "", lastName: "", email: "", phone: "", companyId: "", jobTitle: "" });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState(emptyForm);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -38,9 +48,14 @@ export default function ContactsPage() {
       try {
         const params = new URLSearchParams();
         if (search) params.set("search", search);
-        const res = await fetch(`/api/contacts?${params}`);
-        const data = await res.json();
-        setContacts(data.contacts || []);
+        const [contactsRes, companiesRes] = await Promise.all([
+          fetch(`/api/contacts?${params}`),
+          fetch("/api/companies?limit=100"),
+        ]);
+        const contactsData = await contactsRes.json();
+        const companiesData = await companiesRes.json();
+        setContacts(contactsData.contacts || []);
+        setCompanies(companiesData.companies || []);
       } catch (error) {
         console.error(error);
       } finally {
@@ -53,21 +68,45 @@ export default function ContactsPage() {
 
   const refresh = () => setRefreshKey((k) => k + 1);
 
+  const openCreate = () => {
+    setEditingId(null);
+    setFormData(emptyForm);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (contact: Contact) => {
+    setEditingId(contact.id);
+    setFormData({
+      firstName: contact.firstName,
+      lastName: contact.lastName || "",
+      email: contact.email || "",
+      phone: contact.phone || "",
+      companyId: contact.companyId || "",
+      jobTitle: contact.jobTitle || "",
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Tem certeza que deseja excluir este contato?")) return;
+    await fetch(`/api/contacts/${id}`, { method: "DELETE" });
+    refresh();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      const res = await fetch("/api/contacts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-      if (res.ok) {
-        setDialogOpen(false);
-        setFormData({ firstName: "", lastName: "", email: "", phone: "", companyId: "", jobTitle: "" });
-        refresh();
-      }
-    } catch (error) {
-      console.error(error);
+    const url = editingId ? `/api/contacts/${editingId}` : "/api/contacts";
+    const method = editingId ? "PATCH" : "POST";
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
+    if (res.ok) {
+      setDialogOpen(false);
+      setFormData(emptyForm);
+      setEditingId(null);
+      refresh();
     }
   };
 
@@ -78,14 +117,12 @@ export default function ContactsPage() {
         description="Gerencie seus contatos"
         action={
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" /> Novo Contato
-              </Button>
+            <DialogTrigger render={<Button />}>
+              <Plus className="mr-2 h-4 w-4" /> Novo Contato
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Novo Contato</DialogTitle>
+                <DialogTitle>{editingId ? "Editar Contato" : "Novo Contato"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -110,6 +147,18 @@ export default function ContactsPage() {
                   <Label>Cargo</Label>
                   <Input value={formData.jobTitle} onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })} />
                 </div>
+                <div className="space-y-2">
+                  <Label>Empresa</Label>
+                  <Select value={formData.companyId} onValueChange={(v) => setFormData({ ...formData, companyId: v ?? "" })}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar empresa" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhuma</SelectItem>
+                      {companies.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
                   <Button type="submit">Salvar</Button>
@@ -131,16 +180,17 @@ export default function ContactsPage() {
               <TableHead>Email</TableHead>
               <TableHead>Telefone</TableHead>
               <TableHead>Empresa</TableHead>
+              <TableHead className="w-[100px]">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8">Carregando...</TableCell>
+                <TableCell colSpan={5} className="text-center py-8">Carregando...</TableCell>
               </TableRow>
             ) : contacts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4}>
+                <TableCell colSpan={5}>
                   <EmptyState icon={Users} title="Nenhum contato encontrado" description="Adicione seu primeiro contato" />
                 </TableCell>
               </TableRow>
@@ -174,6 +224,16 @@ export default function ContactsPage() {
                   )}
                 </TableCell>
                 <TableCell className="text-sm text-gray-600">{contact.company?.name || "-"}</TableCell>
+                <TableCell>
+                  <div className="flex space-x-1">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(contact)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(contact.id)}>
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
