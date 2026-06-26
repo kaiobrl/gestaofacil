@@ -47,12 +47,15 @@ export async function POST(req: Request) {
       );
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { ownerId: _, ...dealData } = result.data;
+
     const deal = await prisma.deal.create({
       data: {
         tenantId: user.tenantId,
         createdById: user.id,
         ownerId: user.id,
-        ...result.data,
+        ...dealData,
       },
       include: {
         contact: { select: { id: true, firstName: true, lastName: true } },
